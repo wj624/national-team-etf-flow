@@ -1632,6 +1632,38 @@ GAS 只负责取数和排版，改口径只改 Python 一处」。
 - **回滚**：`git revert <本次 commit>` 可回到 29 只 / 13 类口径；但 `_etf_shares_cache.json` 已写入新标的历史，
   回滚后需按 H.9 重新确认缓存；派生指标需重算。
 
-### K.9 线上实测记录
+### K.9 线上实测记录（2026-11-13）
 
-> 待 `daily-refresh.yml` 手动 dispatch 实测后回填（run id / 产物自动提交 sha / 线上页面与摘要核验）。
+> 本节是 29→34 口径切换的**上线实测结论**，后续维护者 / AI 直接以本节为准。
+> 注意：workflow 日志里的 `echo "报表无变化, 跳过提交"` 是 shell 脚本源码回显，**不是执行结果**；
+> 判断有没有提交要看线上 HEAD 是否前进，不要看这一行。
+
+| 项 | 结果 |
+| :--- | :--- |
+| 源码提交 | `bb62008` `feat: 口径跟进上游 34 只 / 12 类（对齐 9cb6ddc，方便数据对照）`，`git pull --rebase` 后 push，**未 force** |
+| 手动 dispatch | run `43418747101`，`status=completed` / `conclusion=success`，基于 `bb62008`，约 5m10s，11 个 step 全 success、0 traceback |
+| workflow 自动提交 | `e43da465e51d` `chore: 每日自动刷新国家队ETF净买卖报表 (2026-11-13 11:44:07 北京+8)` |
+| 该提交改动 | **仅 5 个产物，各 `+1/-1`**：`_etf_data.json` / `index.html` / `latest.json` / `llms.txt` / `snapshot.md`；源码、workflow、README、份额缓存均未改 |
+| Pages 入口 | `llms.txt` / `latest.json` 均 HTTP 200、content-type 正确；`34 只` 与 `"etfs":34` 命中 |
+| 线上摘要 | `latest.json` `scope.etfs=34`、`scope.cats=12`、`today.net=-204.2` |
+| 同日对照 | 本仓与上游同为数据日 `2026-11-12`，全市场净买卖合计 **−204.209 亿元** 逐值一致 |
+| 最终核验 | `work/verify_online_34.py` **44 PASS / 0 FAIL**（金额口径逐值一致） |
+
+**源码 / workflow / README 与本地逐字一致**：`README.md` / `refresh.py` / `make_summary.py`
+的线上 blob 与本地字节相同；`daily-refresh.yml` 仍为 `cron: "0 15 * * 1-5"`
+（北京 23:00 工作日一次）、仍锁 `pandas<3`、未引入 `akshare` —— K.3 的三项不移植项均未回流。
+
+**允许的差异只有两类，不得有第三类**：
+
+1. `_etf_data.json` 的 `cat_kline`：云端腾讯 K 线降级，内容少于本地，但 `kline` 字段本身一致
+   （附录 I.7 已记录的同型非阻断告警，**不影响任何金额口径**）。
+2. `llms.txt` / `snapshot.md` 仅「本摘要生成于 …」**一行**时间戳：本地北京 +8 `19:33`、
+   云端 runner UTC `11:44`；`latest.json` 的 `generated` 时间戳可滚动，其余字段必须一致。
+
+`data_asof` / `dates` / `date_total` / `cat_total` / `etfs` / `mv_total` / `deep_start` /
+`IDX_NAMES` / `DATA_D` / `IDX_Q[0]` 全部线上 == 本地；`_etf_data.updated` 保持
+`2026-11-12 21:49` 未被改写。页面为 `12类34只`、无 `13类29只`、无 `159949` / `563300`，
+新增 7 只齐备，双口径标签（橙 NEW / 蓝 BASE）在位。
+
+> README-only 回填不需要重跑 workflow（不改取数逻辑、不改产物）；按 K.6 第 7 条
+> 精确 `git add README.md`、**中文 commit**、`git pull --rebase`、**绝不 force** 即可。
