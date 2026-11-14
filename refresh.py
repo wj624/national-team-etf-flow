@@ -5,6 +5,17 @@
 每次运行: 重新拉取沪深两市 ETF 份额与净值, 计算每日净买卖, 生成自包含HTML报表
 净买入/净卖出 = (当日份额 - 前一日份额) × 当日单位净值 (正=净买入, 负=净卖出)
 """
+import os
+
+
+# 自建 Worker 鉴权：密钥只从环境变量读取，绝不写进代码或提交历史
+def _worker_headers(extra=None):
+    h = dict(extra or {})
+    k = os.environ.get("A_STOCK_API_KEY", "")
+    if k:
+        h["X-API-Key"] = k
+    return h
+
 from datetime import datetime, timedelta, timezone
 import json, time, os, io, sys, shutil, requests, re
 import pandas as pd
@@ -14,7 +25,7 @@ API_BASE = "https://a-stock-api.wj4020410.workers.dev"
 
 def _api_get(path, params=None, timeout=60):
     """GET a-stock-api 端点，返回 JSON。"""
-    r = requests.get(API_BASE + path, params=params, timeout=timeout)
+    r = requests.get(API_BASE + path, params=params, timeout=timeout, headers=_worker_headers())
     r.raise_for_status()
     return r.json()
 
