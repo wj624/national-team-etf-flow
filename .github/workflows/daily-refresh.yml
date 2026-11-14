@@ -17,6 +17,8 @@ permissions:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    env:
+      A_STOCK_API_KEY: ${{ secrets.A_STOCK_API_KEY }}
     # 不加这行的默认上限是 360 分钟(6 小时)：某个数据接口不返回时任务会一直挂着，
     # 白占一个并发位，且日志要等很久才看得到。
     # 实测正常一轮 7~10 分钟(refresh.py 数据滞后自检最多再等 150s×2=300s), 极端情况约 15 分钟;
