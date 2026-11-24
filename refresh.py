@@ -729,7 +729,20 @@ def main():
             if s is not None and w is not None:
                 tot += s * w
         mv_total[ds] = round(tot / 1e8, 1)
-    payload["mv_total"] = mv_total
+
+    # 分类持仓市值(亿元): 每只ETF按所属类别聚合 份额×净值(沿用全市场同一口径与缺失填充)
+    cat_of = {c: CAT_MAP.get(c, "其他") for c, _, _ in TARGETS}
+    mv_cat = {cat: {} for cat in set(cat_of.values())}
+    for ds in dates_sorted:
+        bycat = {}
+        for c, _, _ in TARGETS:
+            s_, w_ = last_seen.get(c, (None, None))
+            if s_ is not None and w_ is not None:
+                cat = cat_of[c]
+                bycat[cat] = bycat.get(cat, 0.0) + s_ * w_
+        for cat, v in bycat.items():
+            mv_cat[cat][ds] = round(v / 1e8, 1)
+    payload["mv_cat"] = mv_cat
     return payload
 
 def escape_html(s):
@@ -874,6 +887,46 @@ def render_html(p):
  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
 })();
 '''
+    # 分类持仓市值曲线：跟随指数下拉；显示当前市值+历史百分位（全样本 expanding rank）
+    _catmv = p.get("mv_cat", {})
+    _catmv_m = {cat: {str(k) if len(str(k)) != 8 else f"{str(k)[:4]}-{str(k)[4:6]}-{str(k)[6:]}": v
+                      for k, v in (_catmv.get(cat) or {}).items()} for cat in i_kl_names}
+    _catmv_full = {cat: [(d, round(_catmv_m.get(cat, {}).get(d, 0), 1)) for d in dates]
+                   for cat in i_kl_names}
+    CATMV_DATA = json.dumps({"names": i_kl_names, "series": _catmv_full, "dates": dates},
+                            ensure_ascii=False, separators=(',', ':'))
+
+    _CATMV_BODY = r"""
+(function(){
+ var sel=document.getElementById('klnCat');
+ var svg=document.getElementById('catMvSvg'), stat=document.getElementById('catmvStat'), tip=document.getElementById('catMvTip');
+ if(!sel||!svg) return;
+ var W=860,H=160,pad=12;
+ function rankAt(vals,i){var c=0;for(var k=0;k<=i;k++){if(vals[k]<=vals[i])c++;}return c/(i+1)*100;}
+ function draw(idx){
+  var s=CATMV.series[CATMV.names[idx]]||[], vals=s.map(function(x){return x[1];}), n=vals.length;
+  if(!n)return;
+  var mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals);if(mn===mx){mn-=1;mx+=1;}
+  var pts=[],X=function(i){return pad+i*(W-2*pad)/(n-1);},Y=function(v){return H-pad-(v-mn)/(mx-mn)*(H-2*pad);};
+  for(var i=0;i<n;i++)pts.push(X(i).toFixed(1)+','+Y(vals[i]).toFixed(1));
+  var poly=pts.join(' '), cur=vals[n-1], pr=rankAt(vals,n-1);
+  svg.innerHTML='<line x1="'+pad+'" y1="'+(H-pad)+'" x2="'+(W-pad)+'" y2="'+(H-pad)+'" stroke="#e6e8ee"/>'
+   +'<polyline points="'+poly+'" fill="none" stroke="#e8863c" stroke-width="1.8"/>'
+   +'<circle cx="'+X(n-1)+'" cy="'+Y(cur)+'" r="3" fill="#d43d2a"/>';
+  stat.innerHTML=CATMV.names[idx]+' 当前 <b style="color:#d43d2a">'+cur.toFixed(0)+' 亿</b> ｜ 历史百分位 <b style="color:#d43d2a">'+pr.toFixed(1)+'%</b>';
+  svg.onmousemove=function(e){
+   var r=svg.getBoundingClientRect(), sx=(e.clientX-r.left)/r.width*W;
+   var i=Math.max(0,Math.min(n-1,Math.round((sx-pad)/(W-2*pad)*(n-1))));
+   tip.textContent=s[i][0]+'　'+vals[i].toFixed(0)+' 亿　历史百分位 '+rankAt(vals,i).toFixed(1)+'%';
+  };
+  svg.onmouseleave=function(){tip.textContent='';};
+ }
+ sel.addEventListener('change',function(){draw(sel.selectedIndex);});
+ draw(sel.selectedIndex);
+})();
+"""
+    CATMV_JS = ('<script>var CATMV=' + CATMV_DATA + ';</script>\n'
+                '<script>' + _CATMV_BODY + '</script>')
 
     KLN_JS = ("<script>\n"
       "var IDX_NAMES=" + INAMES + ";\n"
@@ -927,7 +980,7 @@ def render_html(p):
       "if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',go);}else{go();}\n"
       "})();\n" +
       RANK_JS +
-      "</script>")
+      "</script>" + CATMV_JS)
 
     _cat_opts = "".join('<option%s>%s</option>' % (' selected' if i == 0 else '', _n) for i, _n in enumerate(i_kl_names))
 
@@ -1231,6 +1284,12 @@ svg text{{fill:var(--mut);font-size:10px}}
       <button class="rng" data-n="0">全部</button>
       <span class="kpt" id="klnDate"></span></div>
     <div id="klnBox" style="height:520px;width:100%"></div>
+    <div class="card" style="margin-top:12px;border:0;padding:0;box-shadow:none">
+      <div class="klnctl"><span class="kp">分类持仓市值</span><span class="kpt" id="catmvStat"></span></div>
+      <svg id="catMvSvg" viewBox="0 0 860 160" width="100%" height="160" preserveAspectRatio="none"
+           style="background:#fff;border:1px solid var(--line);border-radius:8px"></svg>
+      <div id="catMvTip" class="cumtip"></div>
+    </div>
     <div id="klnTip" class="ktip">默认显示中证全指K线与全市场国家队ETF每日净买入联动；下拉可切换至{len(CAT_INDEX)}类细分指数（沪深300、创业板等）K线 × 该类ETF净买入合计。上方为指数日K线，下方为当日净买入金额（亿元），鼠标悬停联动查看；红=净买入、绿=净卖出。</div>
     <div style="margin-top:18px;border-top:1px dashed var(--line);padding-top:14px">
       <div style="font-size:13px;font-weight:600;margin-bottom:2px">各板块累计净买入排行 <span style="font-size:11px;font-weight:400;color:var(--mut)">（按所选区间累计降序 · 排最上 = 综合入场金额最多）</span></div>
