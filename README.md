@@ -919,6 +919,7 @@ README.md                             本文件
 - **不要回退 `≥100` 门槛的旧写法**（上游镜像 2026-11-13 起只存 34 只），也不要把 21 只沪市标的校验改回 15 / 17 只。
 - 构建顺序固定：refresh.py(_etf_data.json) → make_summary.py(三份摘要) → cp 成 index.html。
 - 联动图卡片内的「各板块累计净买入排行」是本仓独有增强（原版没有，见附录 I）：与原版对表校验时**排除这一项**，不得因原版页面没有排行而判为异常或删掉本模块。
+- 联动图下方的「分类持仓市值 · 跟随指数下拉（全样本历史百分位）」也是本仓独有增强（原版没有）：160px 曲线 + 当前市值/历史百分位数字，跟随同一个指数下拉。数据来自 `_etf_data.json` 的 `mv_cat`（12 类 × 交易日）与全市场 `mv_total`，**不新增取数、不改任何口径**；与原版对表校验时**排除这一项**。不要手改 `mv_cat`，它随 refresh.py 自动生成。
 - latest.json / llms.txt / snapshot.md / index.html 都是产物，不要手改，改 make_summary.py 或 refresh.py。
 - 邮件侧口径数字（只数 / 交易日数）一律从 latest.json 的 scope 动态读取，禁止在
   gas-national-team-daily.gs 里写死「23 只」「1262 个交易日」这类常量；改完 .gs 需手动到
