@@ -895,7 +895,7 @@ def render_html(p):
     _catmv_full = {}
     for cat in i_kl_names:
         if cat == "中证全指":
-            _catmv_full[cat] = [(d, round(sum(_catmv_m.get(c2, {}).get(d, 0) for c2 in mv_cat), 1)) for d in dates]
+            _catmv_full[cat] = [(d, round(sum(_catmv_m.get(c2, {}).get(d, 0) for c2 in _catmv.keys()), 1)) for d in dates]
         else:
             _catmv_full[cat] = [(d, round(_catmv_m.get(cat, {}).get(d, 0), 1)) for d in dates]
     CATMV_DATA = json.dumps({"names": i_kl_names, "series": _catmv_full, "dates": dates},
