@@ -891,8 +891,14 @@ def render_html(p):
     _catmv = p.get("mv_cat", {})
     _catmv_m = {cat: {str(k) if len(str(k)) != 8 else f"{str(k)[:4]}-{str(k)[4:6]}-{str(k)[6:]}": v
                       for k, v in (_catmv.get(cat) or {}).items()} for cat in i_kl_names}
-    _catmv_full = {cat: [(d, round(_catmv_m.get(cat, {}).get(d, 0), 1)) for d in dates]
-                   for cat in i_kl_names}
+    _mv_total_m = {str(k) if len(str(k)) != 8 else f"{str(k)[:4]}-{str(k)[4:6]}-{str(k)[6:]}": v
+                   for k, v in (p.get("mv_total") or {}).items()}
+    _catmv_full = {}
+    for cat in i_kl_names:
+        if cat == "中证全指":
+            _catmv_full[cat] = [(d, round(_mv_total_m.get(d, 0), 1)) for d in dates]
+        else:
+            _catmv_full[cat] = [(d, round(_catmv_m.get(cat, {}).get(d, 0), 1)) for d in dates]
     CATMV_DATA = json.dumps({"names": i_kl_names, "series": _catmv_full, "dates": dates},
                             ensure_ascii=False, separators=(',', ':'))
 
