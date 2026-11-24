@@ -719,29 +719,25 @@ def main():
         per_day.setdefault(it["c"], {})[it["d"]] = (it["s"], it["w"])
     last_seen = {}
     mv_total = {}
+    cat_of = {c: CAT_MAP.get(c, "其他") for c, _, _ in TARGETS}
+    mv_cat = {cat: {} for cat in set(cat_of.values())}
     for ds in dates_sorted:
         tot = 0.0
+        bycat = {}
         for c, _, _ in TARGETS:
             pd = per_day.get(c, {})
             if ds in pd:
                 last_seen[c] = pd[ds]
-            s, w = last_seen.get(c, (None, None))
-            if s is not None and w is not None:
-                tot += s * w
-        mv_total[ds] = round(tot / 1e8, 1)
-
-    # 分类持仓市值(亿元): 每只ETF按所属类别聚合 份额×净值(沿用全市场同一口径与缺失填充)
-    cat_of = {c: CAT_MAP.get(c, "其他") for c, _, _ in TARGETS}
-    mv_cat = {cat: {} for cat in set(cat_of.values())}
-    for ds in dates_sorted:
-        bycat = {}
-        for c, _, _ in TARGETS:
             s_, w_ = last_seen.get(c, (None, None))
             if s_ is not None and w_ is not None:
+                val = s_ * w_
+                tot += val
                 cat = cat_of[c]
-                bycat[cat] = bycat.get(cat, 0.0) + s_ * w_
+                bycat[cat] = bycat.get(cat, 0.0) + val
+        mv_total[ds] = round(tot / 1e8, 1)
         for cat, v in bycat.items():
             mv_cat[cat][ds] = round(v / 1e8, 1)
+    payload["mv_total"] = mv_total
     payload["mv_cat"] = mv_cat
     return payload
 
