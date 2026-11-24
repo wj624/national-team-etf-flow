@@ -891,12 +891,11 @@ def render_html(p):
     _catmv = p.get("mv_cat", {})
     _catmv_m = {cat: {str(k) if len(str(k)) != 8 else f"{str(k)[:4]}-{str(k)[4:6]}-{str(k)[6:]}": v
                       for k, v in (_catmv.get(cat) or {}).items()} for cat in i_kl_names}
-    _mv_total_m = {str(k) if len(str(k)) != 8 else f"{str(k)[:4]}-{str(k)[4:6]}-{str(k)[6:]}": v
-                   for k, v in (p.get("mv_total") or {}).items()}
+    # 全市场 = 12 类之和（mv_cat 已覆盖 34 只，求和即全市场市值）
     _catmv_full = {}
     for cat in i_kl_names:
         if cat == "中证全指":
-            _catmv_full[cat] = [(d, round(_mv_total_m.get(d, 0), 1)) for d in dates]
+            _catmv_full[cat] = [(d, round(sum(_catmv_m.get(c2, {}).get(d, 0) for c2 in mv_cat), 1)) for d in dates]
         else:
             _catmv_full[cat] = [(d, round(_catmv_m.get(cat, {}).get(d, 0), 1)) for d in dates]
     CATMV_DATA = json.dumps({"names": i_kl_names, "series": _catmv_full, "dates": dates},
