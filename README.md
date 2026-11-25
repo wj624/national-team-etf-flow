@@ -1702,10 +1702,24 @@ GAS 只负责取数和排版，改口径只改 Python 一处」。
 | `README.md` | 开头 / 第三章 / 十三章当前数字改 35 只 13 类；附录 K 标注被本节取代；新增本节 |
 | 产物 | 由 workflow 重跑生成：`_etf_shares_cache.json` / `_etf_data.json` / `index.html` / `latest.json` / `llms.txt` / `snapshot.md` |
 
-**验证要点**：本地 `py_compile` 通过；源码 push 后手动 dispatch `daily-refresh.yml`；
-核验 `latest.json` 的 `scope.etfs=35`、`scope.cats=13`，页面「全部（13类35只）」，
-`159949` 明细与分类「创业板50」出现，11-24 合计对齐原版 -99.42（逐值允许 0.01 级舍入尾差），
-线上源码与本地 blob 逐字节一致。**未 force push，未放宽任何校验。**
+**验证结果（2026-11-25 实测）**：本地 `py_compile` 通过，`TARGETS=35` 且无重复代码，
+`CAT_MAP` 35 键 / 13 类，`CAT_INDEX` 与 `make_summary.py` 的 `CAT_ORDER` 同为 13 键且顺序一致。
+源码提交 `c6413e0`（refresh.py）/ `aa817ac`（make_summary.py）/ `e1afc9`（README 首版），
+与本地逐字节一致；手动 dispatch `daily-refresh.yml` run `45566772356` 成功，
+workflow 自动提交 `ecec111f3504`，**未 force push、未放宽任何校验**。
+
+| 核验项 | 结果 |
+| :--- | :--- |
+| `latest.json` | `asof=2026-11-24`，`scope={etfs:35, cats:13, days:1279}`，`today.net=-99.4`（页面保留两位为 -99.42） |
+| 分类 | 创业板 3 只 `-9.0`；新增创业板50 1 只 `-2.8`；两者相加与原版创业板 4 只口径的差额一致 |
+| 份额回填 | `159949` 覆盖 **1279 天**（20210812～20261124），11-24 份额 `24,839,785,113`；镜像 11-13～11-24 已补齐 |
+| 页面 | `index.html` 命中「13类35只」×2、`159949` ×1、`创业板50` ×8、`-99.42` ×4；「12类34只」0 命中 |
+| AI / 摘要 | `llms.txt` 命中「35 只」/「13 个指数类别」/「159949」/「创业板50」；`snapshot.md` 同步 |
+| Pages 入口 | `latest.json` / `index.html` / `llms.txt` 带 cache-buster 实抓命中新口径，数据日仍为 2026-11-24（当日晚间份额未披露，正常滞后） |
+
+**与原版的关系**：合计金额已对齐（-99.42 亿），但分类结构刻意不同 —— 原版把 `159949` 误标为
+「创业板ETF 嘉实」并塞进「创业板」，本仓按官方名称写「创业板50ETF 华安」并单列「创业板50」。
+对表时只比总量，不逐类硬比。
 
 ---
 
